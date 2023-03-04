@@ -13,18 +13,17 @@ use std::{sync::mpsc::{Sender, Receiver, channel}, thread::JoinHandle};
 
 use crate::{Frame, Blinkmojt};
 
-struct PixelsFrame {
+pub struct PixelsFrame {
     width: u32,
     height: u32,
     pixels: Vec<u8>,
-    sender: Sender<Command>,
 }
 
 enum Command {
     Stop, Draw(Vec<u8>)
 }
 
-struct PixelsBlinkmojt {
+pub struct PixelsBlinkmojt {
     width: u32,
     height: u32,
     sender: Sender<Command>,
@@ -32,9 +31,9 @@ struct PixelsBlinkmojt {
 }
 
 impl PixelsFrame {
-    fn new(width: u32, height: u32, sender: Sender<Command>) -> PixelsFrame {
+    fn new(width: u32, height: u32) -> PixelsFrame {
         PixelsFrame {
-            width, height, pixels: vec![0; (width * height * 4) as usize], sender
+            width, height, pixels: vec![0; (width * height * 4) as usize]
         }
     }
 }
@@ -59,13 +58,9 @@ impl Frame for PixelsFrame {
         self.pixels[y * 4 * (self.width as usize) + x * 4 + 2] = b as u8;
         self.pixels[y * 4 * (self.width as usize) + x * 4 + 3] = a as u8;
     }
-
-    fn draw(self: Box<Self>) {
-        self.sender.send(Command::Draw(self.pixels.clone())).unwrap();
-    }
 }
 
-pub fn open(width: u32, height: u32) -> Box<dyn Blinkmojt> {
+pub fn open(width: u32, height: u32) -> PixelsBlinkmojt {
     env_logger::init();
     info!("opening blinkmojt");
 
@@ -75,14 +70,16 @@ pub fn open(width: u32, height: u32) -> Box<dyn Blinkmojt> {
         run(width, height, receiver);
     });
 
-    Box::new(PixelsBlinkmojt {
+    PixelsBlinkmojt {
         width, height,
         sender, thread,
-    })
+    }
 }
 
 impl Blinkmojt for PixelsBlinkmojt {
-    fn close(self: Box<Self>) {
+    type Frame = PixelsFrame;
+
+    fn close(self) {
         info!("sending stop command");
         self.sender.send(Command::Stop).unwrap();
         info!("waiting for stop");
@@ -90,8 +87,12 @@ impl Blinkmojt for PixelsBlinkmojt {
         info!("dead");
     }
 
-    fn get_frame(&mut self) -> Box<dyn Frame> {
-        Box::new(PixelsFrame::new(self.width, self.height, self.sender.clone()))
+    fn get_frame(&mut self) -> Self::Frame {
+        PixelsFrame::new(self.width, self.height)
+    }
+
+    fn draw_frame(&mut self, frame: Self::Frame) {
+        self.sender.send(Command::Draw(frame.pixels)).unwrap();
     }
 }
 
