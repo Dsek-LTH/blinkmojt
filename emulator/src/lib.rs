@@ -1,14 +1,14 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
+pub const WIDTH: u32 = 64;
+pub const HEIGHT: u32 = 32;
+
+pub mod pixels_backend;
+
+pub trait Frame {
+    fn set_pixel(&mut self, position: (i32, i32), color: u32);
+    fn draw(self: Box<Self>);
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+pub trait Blinkmojt {
+    fn get_frame(&mut self) -> Box<dyn Frame>;
+    fn close(self: Box<Self>);
 }
