@@ -157,7 +157,6 @@ fn run(width: u32, height: u32, receiver: Receiver<Command>) {
                 match command {
                     Command::Stop => control_flow.set_exit(),
                     Command::Draw(frame) => {
-                        info!("drawing");
                         current_frame = frame;
                     }
                 };
