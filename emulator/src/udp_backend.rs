@@ -5,13 +5,15 @@ use crate::{Frame, Blinkmojt};
 pub struct UdpFrame {
     width: u32,
     height: u32,
+    // depth in bytes
+    depth: u32,
     buffer: Vec<u8>,
 }
 
 impl UdpFrame {
-    fn new(width: u32, height: u32) -> UdpFrame {
+    fn new(width: u32, height: u32, depth: u32) -> UdpFrame {
         UdpFrame {
-            width, height, buffer: vec![0; (width * height) as usize]
+            width, height, depth, buffer: vec![0; (width * height * depth) as usize]
         }
     }
 }
@@ -19,6 +21,7 @@ impl UdpFrame {
 pub struct UdpBlinkmojt {
     width: u32,
     height: u32,
+    depth: u32,
     socket: UdpSocket,
 }
 
@@ -26,7 +29,7 @@ impl Blinkmojt for UdpBlinkmojt {
     type Frame = UdpFrame;
 
     fn get_frame(&mut self) -> Self::Frame {
-        UdpFrame::new(self.width, self.height)
+        UdpFrame::new(self.width, self.height, self.depth)
     }
 
     fn draw_frame(&mut self, frame: Self::Frame) {
@@ -45,7 +48,7 @@ impl Blinkmojt for UdpBlinkmojt {
     }
 
     fn depth(&self) -> u32 {
-        8
+        self.depth * 8
     }
 }
 
@@ -64,18 +67,25 @@ impl Frame for UdpFrame {
         let b = (color >> 8) & 0xff;
         let a = (color >> 8) & 0xff;
 
-        self.buffer[y * (self.width as usize) + x] = (r & 0xff) as u8;
+        if self.depth == 1 {
+            self.buffer[y * (self.width as usize) + x] = a as u8;
+        }
+        else if self.depth == 4 {
+            self.buffer[4*(y * (self.width as usize) + x) + 0] = r as u8;
+            self.buffer[4*(y * (self.width as usize) + x) + 1] = g as u8;
+            self.buffer[4*(y * (self.width as usize) + x) + 2] = b as u8;
+            self.buffer[4*(y * (self.width as usize) + x) + 3] = a as u8;
+        }
     }
 }
 
-pub fn open(addr: impl ToSocketAddrs, _width: u32, _height: u32) -> UdpBlinkmojt {
-    let width = 95;
-    let height = 7;
+pub fn open(addr: impl ToSocketAddrs, width: u32, height: u32, depth: u32) -> UdpBlinkmojt {
+    let depth = depth / 8;
 
     let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
     socket.connect(addr).unwrap();
     UdpBlinkmojt {
-        width, height, socket
+        width, height, depth, socket
     }
 }
 

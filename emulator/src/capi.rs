@@ -30,11 +30,12 @@ fn parse_or<E, V: FromStr>(result: Result<String, E>, default: V) -> V {
 pub extern "C" fn blinkmojt_open(_name: *const c_char) -> *const blinkmojt_t {
     let width = parse_or(std::env::var("BLINK_WIDTH"), 64);
     let height = parse_or(std::env::var("BLINK_HEIGHT"), 32);
+    let depth = parse_or(std::env::var("BLINK_DEPTH"), 32);
     let addr = parse_or(std::env::var("BLINK_ADDR"), "127.0.0.1:1337".to_string());
 
     let mojt = Box::new(blinkmojt_t(
         //crate::pixels_backend::open(width, height)
-        crate::udp_backend::open(addr, width, height)
+        crate::udp_backend::open(addr, width, height, depth)
     ));
 
     Box::into_raw(mojt)
