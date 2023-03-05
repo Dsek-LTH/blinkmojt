@@ -11,9 +11,9 @@ int main() {
 
     for (int i=0;;++i) {
         frame_t* frame = blinkmojt_get_frame(mojt);
-        frame_set_pixel(frame, i % info.width, i / info.width % info.height, 0xF280A100);
+        frame_set_pixel(frame, i % info.width, i / info.width % info.height, 0xF280A1FF);
         blinkmojt_draw_frame(mojt, frame);
-        usleep(16000);
+        usleep(40000);
     }
 
     blinkmojt_close(mojt);
