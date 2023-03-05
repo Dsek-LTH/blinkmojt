@@ -3,12 +3,11 @@ const PIXEL_SCALE: f64 = 8.0;
 use log::{info, error};
 use pixels::{Pixels, SurfaceTexture};
 use winit::{
+    window::Window,
     dpi::LogicalSize,
-    event::{Event, VirtualKeyCode},
-    event_loop::{ControlFlow, EventLoopBuilder},
-    window::WindowBuilder, platform::unix::EventLoopBuilderExtUnix,
+    event_loop::EventLoop,
+    window::WindowBuilder,
 };
-use winit_input_helper::WinitInputHelper;
 use std::{sync::mpsc::{Sender, Receiver, channel}, thread::JoinHandle};
 
 use crate::{Frame, Blinkmojt};
@@ -66,8 +65,21 @@ pub fn open(width: u32, height: u32) -> PixelsBlinkmojt {
 
     let (sender, receiver) = channel::<Command>();
 
+    let event_loop = EventLoop::new();
+
+    let window = {
+        let size = LogicalSize::new(width as f64, height as f64);
+        let scaled_size = LogicalSize::new(width as f64 * PIXEL_SCALE, height as f64 * PIXEL_SCALE);
+        WindowBuilder::new()
+            .with_title("Blinkmojt Emulator")
+            .with_inner_size(scaled_size)
+            .with_min_inner_size(size)
+            .build(&event_loop)
+            .unwrap()
+    };
+
     let thread = std::thread::spawn(move || {
-        run(width, height, receiver);
+        run(width, height, receiver, window);
     });
 
     PixelsBlinkmojt {
@@ -96,20 +108,7 @@ impl Blinkmojt for PixelsBlinkmojt {
     }
 }
 
-fn run(width: u32, height: u32, receiver: Receiver<Command>) {
-    let event_loop = EventLoopBuilder::new().with_any_thread(true).build();
-    let mut input = WinitInputHelper::new();
-
-    let window = {
-        let size = LogicalSize::new(width as f64, height as f64);
-        let scaled_size = LogicalSize::new(width as f64 * PIXEL_SCALE, height as f64 * PIXEL_SCALE);
-        WindowBuilder::new()
-            .with_title("Blinkmojt Emulator")
-            .with_inner_size(scaled_size)
-            .with_min_inner_size(size)
-            .build(&event_loop)
-            .unwrap()
-    };
+fn run(width: u32, height: u32, receiver: Receiver<Command>, window: Window) {
 
     let mut pixels = {
         let window_size = window.inner_size();
@@ -117,52 +116,22 @@ fn run(width: u32, height: u32, receiver: Receiver<Command>) {
         Pixels::new(width, height, surface_texture).unwrap()
     };
     pixels.set_clear_color(pixels::wgpu::Color::BLACK);
-    
-    let mut current_frame = vec![0 as u8; (width * height * 4) as usize];
 
-    event_loop.run(move |event, _, control_flow| {
-        // The one and only event that winit_input_helper doesn't have for us...
-        if let Event::RedrawRequested(_) = event {
-            {
-                let pixels = pixels.get_frame_mut();
-                for i in 0..(width * height * 4) {
-                    pixels[i as usize] = current_frame[i as usize];
+    while let Ok(command) = receiver.try_recv() {
+        match command {
+            Command::Stop => break,
+            Command::Draw(frame) => {
+                {
+                    let pixels = pixels.get_frame_mut();
+                    for i in 0..(width * height * 4) {
+                        pixels[i as usize] = frame[i as usize];
+                    }
                 }
-            }
-            if let Err(err) = pixels.render() {
-                error!("pixels.render() failed: {}", err);
-                *control_flow = ControlFlow::Exit;
-                return;
-            }
-        }
-
-        // For everything else, for let winit_input_helper collect events to build its state.
-        // It returns `true` when it is time to update our game state and request a redraw.
-        if input.update(&event) {
-            // Close events
-            if input.key_pressed(VirtualKeyCode::Escape) || input.quit() {
-                *control_flow = ControlFlow::Exit;
-                return;
-            }
-            // Resize the window
-            if let Some(size) = input.window_resized() {
-                if let Err(err) = pixels.resize_surface(size.width, size.height) {
-                    error!("pixels.resize_surface() failed: {err}");
-                    *control_flow = ControlFlow::Exit;
+                if let Err(err) = pixels.render() {
+                    error!("pixels.render() failed: {}", err);
                     return;
                 }
             }
-
-            while let Ok(command) = receiver.try_recv() {
-                match command {
-                    Command::Stop => control_flow.set_exit(),
-                    Command::Draw(frame) => {
-                        current_frame = frame;
-                    }
-                };
-            }
-
-            window.request_redraw();
-        }
-    });
+        };
+    }
 }
