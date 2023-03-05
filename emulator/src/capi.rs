@@ -3,11 +3,14 @@ use std::{os::raw::c_char, ffi::c_int, str::FromStr};
 
 use crate::{Blinkmojt, Frame};
 
-#[repr(C)]
-pub struct blinkmojt_t(crate::pixels_backend::PixelsBlinkmojt);
+type BackendBlinkmojt = crate::udp_backend::UdpBlinkmojt;
+type BackendFrame = crate::udp_backend::UdpFrame;
 
 #[repr(C)]
-pub struct frame_t(crate::pixels_backend::PixelsFrame);
+pub struct blinkmojt_t(BackendBlinkmojt);
+
+#[repr(C)]
+pub struct frame_t(BackendFrame);
 
 #[repr(C)]
 pub struct blinkmojt_info_t {
@@ -27,9 +30,11 @@ fn parse_or<E, V: FromStr>(result: Result<String, E>, default: V) -> V {
 pub extern "C" fn blinkmojt_open(_name: *const c_char) -> *const blinkmojt_t {
     let width = parse_or(std::env::var("BLINK_WIDTH"), 64);
     let height = parse_or(std::env::var("BLINK_HEIGHT"), 32);
+    let addr = parse_or(std::env::var("BLINK_ADDR"), "127.0.0.1:1337".to_string());
 
     let mojt = Box::new(blinkmojt_t(
-        crate::pixels_backend::open(width, height)
+        //crate::pixels_backend::open(width, height)
+        crate::udp_backend::open(addr, width, height)
     ));
 
     Box::into_raw(mojt)
@@ -38,9 +43,9 @@ pub extern "C" fn blinkmojt_open(_name: *const c_char) -> *const blinkmojt_t {
 #[no_mangle]
 pub extern "C" fn blinkmojt_get_info(mojt: *const blinkmojt_t, info: *mut blinkmojt_info_t) {
     unsafe {
-        (*info).width = (*mojt).0.width as c_int;
-        (*info).height = (*mojt).0.height as c_int;
-        (*info).depth = 32;
+        (*info).width = (*mojt).0.width() as c_int;
+        (*info).height = (*mojt).0.height() as c_int;
+        (*info).depth = (*mojt).0.depth() as c_int;
     }
 }
 

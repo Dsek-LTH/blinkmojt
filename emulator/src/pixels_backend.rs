@@ -106,6 +106,18 @@ impl Blinkmojt for PixelsBlinkmojt {
     fn draw_frame(&mut self, frame: Self::Frame) {
         self.sender.send(Command::Draw(frame.pixels)).unwrap();
     }
+
+    fn width(&self) -> u32 {
+        self.width
+    }
+
+    fn height(&self) -> u32 {
+        self.height
+    }
+
+    fn depth(&self) -> u32 {
+        32
+    }
 }
 
 fn run(width: u32, height: u32, receiver: Receiver<Command>, window: Window) {
