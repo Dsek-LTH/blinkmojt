@@ -24,8 +24,8 @@ enum Command {
 }
 
 pub struct PixelsBlinkmojt {
-    width: u32,
-    height: u32,
+    pub width: u32,
+    pub height: u32,
     sender: Sender<Command>,
     thread: JoinHandle<()>,
 }
@@ -104,7 +104,7 @@ fn run(width: u32, height: u32, receiver: Receiver<Command>) {
         let size = LogicalSize::new(width as f64, height as f64);
         let scaled_size = LogicalSize::new(width as f64 * PIXEL_SCALE, height as f64 * PIXEL_SCALE);
         WindowBuilder::new()
-            .with_title("Particles")
+            .with_title("Blinkmojt Emulator")
             .with_inner_size(scaled_size)
             .with_min_inner_size(size)
             .build(&event_loop)
